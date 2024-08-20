@@ -2,7 +2,7 @@
 
 ## 📃 Description
 
-The server powering UWPlanr.
+The backend server for UWPlanr.
 
 ## Stack
 
