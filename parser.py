@@ -81,10 +81,7 @@ def requirements_parsed(prereqs, coreqs) -> bool:
 def main():
     db = get_client()
 
-    courses = []
-    for collection in COLLECTIONS:
-        faculty_courses = list(db[collection].find({ "finalized": True }, projection={"_id": False}))
-        courses = courses + faculty_courses
+    courses = list(db["courses"].find({ "finalized": True }, projection={"_id": False}))
 
     for course in courses:
         if requirements_parsed(course["prereqs"], course["coreqs"]):
@@ -92,7 +89,7 @@ def main():
             continue
         parsed_prereqs = json.dumps(tree_generator_wrapper(course["prereqs"]))
         parsed_coreqs = json.dumps(tree_generator_wrapper(course["coreqs"]))
-        db[FACULTY_TO_COLLECTION[course["faculty"]]].find_one_and_update({ "code": course["code"] }, { "$set": { "prereqs": parsed_prereqs, "coreqs": parsed_coreqs } })
+        db["courses"].find_one_and_update({ "code": course["code"] }, { "$set": { "prereqs": parsed_prereqs, "coreqs": parsed_coreqs } })
         print(f"Updated {course['code']}.")
 
 main()
