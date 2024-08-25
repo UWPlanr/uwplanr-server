@@ -4,11 +4,12 @@ from flask_restful import Api
 from pymongo import ReturnDocument
 from flask_pymongo import PyMongo
 from dotenv import load_dotenv
-from constants import COLLECTIONS, FACULTY_TO_COLLECTION, FACULTIES
 import certifi
 import os
 
 load_dotenv()
+
+FACULTIES = ["ART", "MAT", "SCI", "ENG", "AHS", "ENV", "STP", "REN", "STJ", "CGC", "VPA"]
 
 app = Flask(__name__)
 api = Api(app)
@@ -36,10 +37,7 @@ def check_mongodb():
 def insert_data():
     try:
         data = request.get_json()
-        if data["faculty"] in FACULTIES:
-            mongo.db[FACULTY_TO_COLLECTION[data["faculty"]]].insert_one(data)
-        else:
-            return jsonify({ "error": "invalid json, faculty not found" })
+        mongo.db["courses"].insert_one(data)
         return jsonify({ "message": "Data inserted successfully" })
     except Exception as error:
         return jsonify({ "error": str(error) })
@@ -57,7 +55,7 @@ def finalize_course():
             "minLevel": data["minLevel"],
             "finalized": True,
         }
-        course = mongo.db[FACULTY_TO_COLLECTION[data["faculty"]]].find_one_and_update({ "code": data["code"] }, { "$set": updated_data }, projection={"_id": False}, return_document=ReturnDocument.AFTER)
+        course = mongo.db["courses"].find_one_and_update({ "code": data["code"] }, { "$set": updated_data }, projection={"_id": False}, return_document=ReturnDocument.AFTER)
         return jsonify({"course": course}), 200
     except Exception as error:
         return jsonify({ "error": str(error) }), 500
@@ -66,8 +64,11 @@ def finalize_course():
 @app.route("/grab_courses_faculty/<faculty>", methods=["GET"])
 def grab_courses_faculty(faculty):
     try:
-        courses = list(mongo.db[faculty].find({}))
-        return jsonify({ "courses": courses })
+        if faculty in FACULTIES:
+            courses = list(mongo.db["courses"].find({ "faculty": faculty }, projection={"_id": False}))
+            return jsonify({ "courses": courses, "count": len(courses) })
+        else:
+            return jsonify({ "courses": {} })
     except Exception as error:
         return jsonify({ "error": str(error) }), 500
 
@@ -75,20 +76,18 @@ def grab_courses_faculty(faculty):
 @app.route("/grab_random_course", methods=["GET"])
 def grab_random_course():
     try:
-        for faculty in FACULTIES:
-            course = mongo.db[FACULTY_TO_COLLECTION[faculty]].find_one({ "finalized": False }, projection={"_id": False})
-            if course:
-                return jsonify({ "course": course })
-            else:
-                continue
-        return jsonify({ "course": {} })
+        course = mongo.db["courses"].find_one({ "finalized": False }, projection={"_id": False})
+        if course:
+            return jsonify({ "course": course })
+        else:
+            return jsonify({ "course": {} })
     except Exception as error:
         return jsonify({ "error": str(error) }), 500
     
-@app.route("/grab_course/<faculty>/<code>", methods=["GET"])
-def grab_course(faculty, code):
+@app.route("/grab_course/<code>", methods=["GET"])
+def grab_course(code):
     try:
-        course = mongo.db[FACULTY_TO_COLLECTION[faculty]].find_one({ "code": code }, projection={"_id": False})
+        course = mongo.db["courses"].find_one({ "code": code }, projection={"_id": False})
         if course:
             return jsonify({ "course": course })
         else:
@@ -100,10 +99,7 @@ def grab_course(faculty, code):
 @app.route("/grab_all_courses", methods=["GET"])
 def grab_all_courses():
     try:
-        courses = []
-        for collection in COLLECTIONS:
-            faculty_courses = list(mongo.db[collection].find({}, projection={"_id": False}))
-            courses = courses + faculty_courses
+        courses = list(mongo.db["courses"].find({}, projection={"_id": False}))
         return jsonify({ "courses": courses })
     except Exception as error:
         return jsonify({ "error": str(error) }), 500
@@ -112,13 +108,10 @@ def grab_all_courses():
 @app.route("/finalized_courses_count", methods=["GET"])
 def finalized_courses_count():
     try:
-        total = 0
-        for collection in COLLECTIONS:
-            count = mongo.db[collection].count_documents({ "finalized": True })
-            total += count
+        total = mongo.db["courses"].count_documents({ "finalized": True })
         return jsonify({ "finalized": total })
     except Exception as error:
         return jsonify({ "error": str(error) }), 500
 
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=5000, threaded=True, debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, threaded=True, debug=True)
