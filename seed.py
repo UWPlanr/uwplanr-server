@@ -4,14 +4,13 @@ import sys
 import requests
 from db import get_client
 from dotenv import load_dotenv
-from constants import FACULTIES, FACULTY_TO_COLLECTION
 from helpers import parse_prereqs, parse_coreqs, parse_antireqs, lowest_term, terms_offered
 
 load_dotenv()
 
 # Checks if a course falls under one of the six faculties and it is an undergraduate course.
 def valid_course(course) -> bool:
-    if course["associatedAcademicGroupCode"] in FACULTIES and course["associatedAcademicCareer"] == "UG":
+    if course["associatedAcademicCareer"] == "UG":
         return True
     return False
 
@@ -60,12 +59,12 @@ def main():
             code = f"{subject_code} {catalog_number}"
 
             # Checking if the course exists in the database and has the same requirements and description
-            course_in_db = db[FACULTY_TO_COLLECTION[faculty]].find_one({ "code": code })
+            course_in_db = db["courses"].find_one({ "code": code })
             if course_in_db is not None:
                 if course_in_db["requirements"] == requirements and course_in_db["description"] == description:
                     continue
                 else:
-                    db[FACULTY_TO_COLLECTION[faculty]].delete_one({ "code": code })
+                    db["courses"].delete_one({ "code": code })
             
             split_reqs = requirement_splitter(requirements)
             prereqs = parse_prereqs(split_reqs["prereqs"])
@@ -88,7 +87,7 @@ def main():
                 "finalized": False,
             }
 
-            db[FACULTY_TO_COLLECTION[faculty]].insert_one(data)
+            db["courses"].insert_one(data)
             print(f"Added {code} to MongoDB.")
 
 main()
