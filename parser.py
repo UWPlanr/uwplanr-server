@@ -1,6 +1,5 @@
 import json
 from db import get_client
-from constants import COLLECTIONS, FACULTY_TO_COLLECTION
 
 class Stack:
     def __init__(self):
